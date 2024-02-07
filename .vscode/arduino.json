@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:leonardo",
+    "programmer": "arduinoasispatmega32u4",
+    "port": "COM5",
+    "sketch": "Linesensing\\Linesensing.ino"
+}
