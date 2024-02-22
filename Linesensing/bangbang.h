@@ -41,6 +41,30 @@ class BangBangController_c{
         // motors.stop();
       }
     }
+    float weightedMeasurement(float left, float right, float mid){
+      float sum = left+right;
+      float n_l = (left/sum)*2.0;
+      float n_r = (right/sum)*2.0;
+      float w = n_l - n_r;
+      return w;
+    }
+
+    void weigthedAvg(float left, float right, float mid){
+      float BiasPWM = 30;
+      float MaxTurnPwm = 50;
+      float w = 0;
+      float leftPWM = 0;
+      float rightPWM = 0;
+      // readLineSensors() -> Get the sensor updates.
+      if(Online==true){
+        w = weightedMeasurement(left, right, mid); 
+        leftPWM = BiasPWM + (w*MaxTurnPwm);
+        rightPWM = BiasPWM - (w*MaxTurnPwm);
+        // setMotorPower(leftPWM, rightPWM); set power at this step.
+      }else{
+        // setMotorPower(0.0,0.0);
+      }
+    }
 };
 
 #endif

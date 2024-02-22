@@ -1,5 +1,5 @@
 // this #ifndef stops this file
-// from being included mored than
+// from being included more than
 // once by the compiler. 
 #ifndef _KINEMATICS_H
 #define _KINEMATICS_H
