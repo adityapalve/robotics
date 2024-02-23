@@ -32,6 +32,24 @@ class Motors_c {
       pinMode(L_DIR_PIN, OUTPUT);
       pinMode(R_DIR_PIN, OUTPUT);
     }
+    
+    void setMotorPower(float leftPWM,float rightPWM){
+      if(leftPWM<0){
+        analogWrite(L_DIR_PIN, 255);
+      }else{ 
+        analogWrite(L_DIR_PIN, 0);
+      }
+
+      if(rightPWM<0){
+        analogWrite(R_DIR_PIN, 255);
+      }else{
+        analogWrite(R_DIR_PIN, 0);
+      }
+
+      analogWrite(L_PWM_PIN, leftPWM);
+      analogWrite(R_PWM_PIN, rightPWM);
+
+    }
 
     void moveForward(int power){
       analogWrite(L_DIR_PIN, 0);
