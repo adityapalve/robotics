@@ -5,8 +5,8 @@
 #include "fsm.h"
 #define CPR 358.3
 
-LineSensor_c line_sensors;
-Motors_c motors;
+// LineSensor_c line_sensors;
+// Motors_c motors;
 FSM_c fsm;
 // BangBangController_c b2;
 
@@ -39,8 +39,8 @@ void updateKinematics(){
 
 void setup() {
   // Set some initial pin modes and states
-  line_sensors.initialise();
-  motors.initialise();
+  // line_sensors.initialise();
+  // motors.initialise();
   // Start Serial, wait to connect, print a debug message.
   // b2.initialise();
   fsm.initialise();
@@ -57,19 +57,12 @@ unsigned long timestep = 100;
 
 void loop() {
   // Abstract this in a controller file.
-  float left = line_sensors.readLineSensor(line_sensors.ls_pins[1]);
-  float mid = line_sensors.readLineSensor(line_sensors.ls_pins[2]);
-  float right = line_sensors.readLineSensor(line_sensors.ls_pins[3]);
-  // float w_avg =  (left+mid+right)/3;
   fsm.run();
   /* TODO: 
     3. Write a bool lineDetected() function to confirm robot is on black line.
     4. Using it allow robot to start off anywhere and find the black line, 
        and then allow calling the bang bang controller.
   */
-
-  float leftThreshold = 1000;
-  float rightThreshold = 1000;
 
   // b2.run(left,right, leftThreshold, rightThreshold, w_avg);
 
@@ -98,8 +91,8 @@ void loop() {
     updateKinematics();
     prev_time = current_time;
   }
-  Serial.print("distance travelled: ");
-  Serial.println(x_i);
-  Serial.print("Angle rotated: ");
-  Serial.println(theta_i);
+  // Serial.print("distance travelled: ");
+  // Serial.println(x_i);
+  // Serial.print("Angle rotated: ");
+  // Serial.println(theta_i);
 } 

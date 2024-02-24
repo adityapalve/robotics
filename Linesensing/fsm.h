@@ -1,8 +1,9 @@
 #ifndef _FSM_H
 #define _FSM_H
 #include "linesensor.h"
-#include "motors.h"
+// #include "motors.h"
 #include "kinematics.h"
+#include "bangbang.h"
 #include <string.h>
 using namespace std;
 
@@ -19,8 +20,9 @@ using namespace std;
 #define RIGHT_THRESHOLD 1000
 
 LineSensor_c line_sensors;
-Motors_c motors;
+// Motors_c motors;
 Kinematics_c kinematics;
+BangBangController_c controller;
 
 class FSM_c{
   public:
@@ -31,9 +33,11 @@ class FSM_c{
 
     void initialise(){
       line_sensors.initialise();
-      motors.initialise();
+      // motors.initialise();
       // TODO:
       // kinematics.initialise();
+      controller.initialise();
+      state = 10;
     }
 
     struct sensorData{
@@ -47,7 +51,7 @@ class FSM_c{
     sensorData updateSensors(){
       sensorData sensor_data;
       sensor_data.left = line_sensors.readLineSensor(line_sensors.ls_pins[1]);
-      sensor_data.left = line_sensors.readLineSensor(line_sensors.ls_pins[2]);
+      sensor_data.mid = line_sensors.readLineSensor(line_sensors.ls_pins[2]);
       sensor_data.right = line_sensors.readLineSensor(line_sensors.ls_pins[3]);
       return sensor_data;
     }
@@ -78,10 +82,10 @@ class FSM_c{
     void updateState(sensorData sensor_data){
     //  Line sensors <- left, mid, right (float 0-2000).
     // 
-    if(sensor_data.left<LEFT_THRESHOLD && sensor_data.right>RIGHT_THRESHOLD){
-      state=
-    }
-
+    // if(sensor_data.left<LEFT_THRESHOLD && sensor_data.right>RIGHT_THRESHOLD){
+    //   state=0;
+    // }else if(true){
+    // }
     }
 
     void driveForwards(){
@@ -97,7 +101,12 @@ class FSM_c{
 
     void run(){
       sensorData data = updateSensors();
-      updateState(data);
+      float w = controller.weightedMeasurement(data.left, data.right, data.mid);
+      Serial.print("W: ");
+      Serial.println(w);
+      controller.weigthedAvg(w, data.left, data.mid, data.right);
+
+      // updateState(data);
 
       if(state == STATE_INITIAL){
 
