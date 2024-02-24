@@ -24,7 +24,7 @@ class LineSensor_c {
                       LS_RIGHT_PIN
                       };
 
-    void initialize(){
+    void initialise(){
       pinMode( EMIT_PIN, INPUT ); // Set EMIT as an input (off)
       pinMode( LS_LEFT_PIN, INPUT ); // Set line sensor pin to input
     }
