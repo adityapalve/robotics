@@ -20,61 +20,95 @@ class BangBangController_c{
       // line_sensors.initialise();
     }
 
-    float weightedMeasurement(float left, float right, float mid){
+    float weightedMeasurement(float left, float right, float mid, float el, float er){
       float sum = left+right;
       float n_l = (left/sum)*2.0;
       float n_r = (right/sum)*2.0;
       float w = n_l - n_r;
       return w;
+      // float sum = left + right + el + er;
+    
+      // // Normalize the values to a scale of -2 to 2, accounting for all sensors
+      // float n_el = (el / sum) * 4.0; // More weight if we need sharper turn
+      // float n_left = (left / sum) * 4.0;
+      // float n_right = (right / sum) * 4.0;
+      // float n_er = (er / sum) * 4.0; // More weight if we need sharper turn
+      
+      // // Calculate the weighted measurement
+      // float w = (el + n_left) - (n_right + er);
+      
+      // // Detect if a 90-degree turn might be needed
+      // if(mid < 1000 && left < 1000 && right < 1000){
+      //     // All middle sensors detect white, potential 90-degree turn
+      //   if(el > 1500){
+      //       // Far left sensor detects the line, suggesting a turn to the left
+      //     w = -2; // Arbitrary strong left turn signal
+      //   } else if(er > 1500){
+      //       // Far right sensor detects the line, suggesting a turn to the right
+      //     w = 2; // Arbitrary strong right turn signal
+      //   }
+      // }
+      
+      // return w;
+
     }
 
     // W -> when -ve robot should turn right.
     // -> when +ve, robot should turn left.
     // Test w values in terms of 
 
-    void weigthedAvg(float w, float left, float mid, float right){
+    void weigthedAvg(float w, float left, float mid, float right, float el, float er){
       float BiasPWM = 30;
       float MaxTurnPwm = 20;
-      // float w = 0.0;
-      // float leftPWM = 0;
-      // float rightPWM = 0;
-      // readLineSensors() -> Get the sensor updates.
+      float w_avg = (left+mid+right)/3;
+      Serial.print("EL: ");
+      Serial.println(el);
+      Serial.print("ER: ");
+      Serial.println(er);
+      float leftPWM, rightPWM;
       // use 0.01 for the most smooth operation.
       // if(w<-0.1 || w>0.1){
       if((left<leftThreshold && right>rightThreshold) || (left>leftThreshold && right<rightThreshold)){
         // w = weightedMeasurement(left, right, mid);
-        float leftPWM = BiasPWM - (w*MaxTurnPwm);
-        float rightPWM = BiasPWM + (w*MaxTurnPwm);
-        Serial.print("leftPWM: ");
-        Serial.println(leftPWM);
-        Serial.print("rightPWM: ");
-        Serial.println(rightPWM);
-        // setMotorPower(leftPWM, rightPWM); set power at this step.
+        leftPWM = BiasPWM - (w*MaxTurnPwm);
+        rightPWM = BiasPWM + (w*MaxTurnPwm);
+        // Serial.print("leftPWM: ");
+        // Serial.println(leftPWM);
+        // Serial.print("rightPWM: ");
+        // Serial.println(rightPWM);
         motors.setMotorPower(leftPWM,rightPWM);
       }else if(mid>1000){
         motors.setMotorPower(20,20);
       }
-      else{
+      else if(w_avg<1000){
         // motors.turnRight(20);
+        // Cannot use this directly. Switching directions this quickly screws 
+        // up the weighted controller
+        Serial.print("EL: ");
+        Serial.println(el);
+        Serial.print("ER: ");
+        Serial.println(er);
+        if(el<1600 && er>1500){
+          // turn R
+          motors.setMotorPower(20,0);
+        }else if(el>1600 && er<1500){
+          // turn L
+          motors.setMotorPower(0,20);
+        }
+        // Adjust for strong turn signals specifically for 90-degree turns.
+      // else if (w == -2) { // Strong signal for sharp left turn.
+      //   leftPWM = 0;
+      //   rightPWM = BiasPWM + MaxTurnPwm; // Turn in place or sharp turn.
+      // }else if (w == 2) { // Strong signal for sharp right turn.
+      //   leftPWM = BiasPWM + MaxTurnPwm;
+      //   rightPWM = 0; // Turn in place or sharp turn.
+      }else{
         motors.stop();
       }
     }
 
-    // void controller(){
-    //   float left = line_sensors.readLineSensor(line_sensors.ls_pins[1]);
-    //   float mid = line_sensors.readLineSensor(line_sensors.ls_pins[2]);
-    //   float right = line_sensors.readLineSensor(line_sensors.ls_pins[3]);
-    //   // For running the bangbang controller.
-    //   run(left, right, 1000, 1000, w_avg)
-      
-    //   // For testing the W funtion.
-    //   float w = weightedMeasurement(left,right, mid); 
-    //   Serial.print("Weight Measurement Coef: ");
-    //   Serial.println(w);
-    // }
-
     void run(float left,float right, float mid){
-    float w_avg =  (left+mid+right)/3;
+      float w_avg =  (left+mid+right)/3;
       if(left<leftThreshold && right>rightThreshold){
         Serial.println("TURN RIGHT COMMAND");
         // time_start = micros();

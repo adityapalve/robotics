@@ -50,9 +50,11 @@ class FSM_c{
 
     sensorData updateSensors(){
       sensorData sensor_data;
+      sensor_data.el = line_sensors.readLineSensor(line_sensors.ls_pins[0]);
       sensor_data.left = line_sensors.readLineSensor(line_sensors.ls_pins[1]);
       sensor_data.mid = line_sensors.readLineSensor(line_sensors.ls_pins[2]);
       sensor_data.right = line_sensors.readLineSensor(line_sensors.ls_pins[3]);
+      sensor_data.er = line_sensors.readLineSensor(line_sensors.ls_pins[4]);
       return sensor_data;
     }
     /*
@@ -101,10 +103,10 @@ class FSM_c{
 
     void run(){
       sensorData data = updateSensors();
-      float w = controller.weightedMeasurement(data.left, data.right, data.mid);
-      Serial.print("W: ");
-      Serial.println(w);
-      controller.weigthedAvg(w, data.left, data.mid, data.right);
+      float w = controller.weightedMeasurement(data.left, data.right, data.mid, data.el, data.er);
+      // Serial.print("W: ");
+      // Serial.println(w);
+      controller.weigthedAvg(w, data.left, data.mid, data.right, data.el, data.er);
 
       // updateState(data);
 
@@ -121,8 +123,8 @@ class FSM_c{
         foundLineBeep();
 
       }else{
-        Serial.print("SYSTEM ERROR, unknown state: ");
-        Serial.println(state);
+        // Serial.print("SYSTEM ERROR, unknown state: ");
+        // Serial.println(state);
       }
     }
 };
