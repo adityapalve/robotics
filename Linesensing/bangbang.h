@@ -61,10 +61,10 @@ class BangBangController_c{
       float BiasPWM = 30;
       float MaxTurnPwm = 20;
       float w_avg = (left+mid+right)/3;
-      Serial.print("EL: ");
-      Serial.println(el);
-      Serial.print("ER: ");
-      Serial.println(er);
+      // Serial.print("EL: ");
+      // Serial.println(el);
+      // Serial.print("ER: ");
+      // Serial.println(er);
       float leftPWM, rightPWM;
       // use 0.01 for the most smooth operation.
       // if(w<-0.1 || w>0.1){
@@ -102,8 +102,6 @@ class BangBangController_c{
       // }else if (w == 2) { // Strong signal for sharp right turn.
       //   leftPWM = BiasPWM + MaxTurnPwm;
       //   rightPWM = 0; // Turn in place or sharp turn.
-      }else{
-        motors.stop();
       }
     }
 
