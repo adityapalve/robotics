@@ -18,6 +18,7 @@ using namespace std;
 #define STATE_DRIVE_STR 9
 #define STATE_DEADEND 10
 #define STATE_FIND 11
+#define STATE_GAP 12
 #define LEFT_THRESHOLD 1000
 #define RIGHT_THRESHOLD 1000
 #define DURATION 300
@@ -91,9 +92,18 @@ class FSM_c{
         state=STATE_FOUND_LINE;
       }else if(sensor_data.mid > 1000 && sensor_data.el < 1400 && sensor_data.er<1500 && state == STATE_TURN_LEFT){
         state = STATE_FOLLOW_LINE;
-      }else if(sensor_data.mid<LEFT_THRESHOLD && sensor_data.left<800 && sensor_data.right<800 && sensor_data.er<1000 && state == STATE_FOLLOW_LINE && (kinematics.disp<350 || kinematics.disp>900)){
+      }else if(sensor_data.mid<LEFT_THRESHOLD && sensor_data.left<800 && sensor_data.right<800 && sensor_data.er<1000 
+        && state == STATE_FOLLOW_LINE 
+        && (kinematics.disp<300 || kinematics.disp>500)){
+  
         state = STATE_DEADEND;
-      }
+      }else if((sensor_data.left>LEFT_THRESHOLD 
+        || sensor_data.right>LEFT_THRESHOLD 
+        || sensor_data.el>1400 
+        || sensor_data.er > 1400)
+        && state ==  STATE_GAP){
+          state = STATE_FOLLOW_LINE;
+        }
     }
 
     void driveForwards(){
@@ -129,18 +139,19 @@ class FSM_c{
     }
     unsigned long timer = 0; 
     void dead(){
-      if(kinematics.disp>1000){
+      if(timer==0){
+        timer = millis();
+      }
+      if(kinematics.disp>1180){
         motors.stop();
-        Serial.print("IT REACHED INSIDE THE IFFFFFF");
         state = STATE_RETURN_HOME;
       }else{
-        if(timer==0){
-          timer = millis();
+        if(kinematics.disp>500){
+          state = STATE_GAP;
         }
         if(millis()-timer>DURATION){
           motors.stop();
           timer = 0;
-          // can this be join line again?
           state = STATE_REDISCOVER_LINE; 
         }else{
           state = STATE_FOLLOW_LINE;
@@ -157,11 +168,76 @@ class FSM_c{
       }
     }
 
+    bool heading(){
+      float x = kinematics.x_i;
+      float y = kinematics.y_i;
+      float theta_final = kinematics.theta_i;
+
+      float targetAngle = (3*PI)/2 - atan2(-x,-y);
+      // float targetAngle = PI/2;
+      float tolerance = 2*(PI/180);
+
+      if(abs(targetAngle-theta_final)>tolerance){
+        motors.turnRight(20);
+        kinematics.update();
+        return false;
+      }else{
+        motors.stop();
+        return true;
+      }
+    }
+
+    void go_home_c(){
+      // Implement a controller to make it run straight.
+    }
+    
+    bool go_home(float d_home){
+      kinematics.update();
+      float d_curr = kinematics.disp;
+      float d_tol = d_home;
+      float distance_travelled = abs(d_home - d_curr); 
+      Serial.print("distance travelled: ");
+      Serial.println(distance_travelled);
+      Serial.print("Displacement: ");
+      Serial.println(d_curr);
+      if(distance_travelled<d_tol){
+        motors.setMotorPower(20,20);
+        return false;
+      }else{
+        motors.stop();
+        return true;
+      }
+    }
+
+    bool flag = false;
+    bool d_flag = false;
     void returnHome(){
-      // find current angle.
-      // change heading towards that angle.
-      motors.stop();
+      // // find current angle.
+      // // change heading towards that angle.
       // make the robot go there.
+      while(flag == false){
+        flag = heading();
+      }
+
+      kinematics.update();
+      float x_home = kinematics.x_i;
+      float y_home = kinematics.y_i;
+      const float d_home = kinematics.disp;
+
+      // delay(500);
+      // Serial.print();
+      d_flag = true;
+      while(d_flag == false){
+        flag = go_home(d_home);
+      }
+    }
+
+    void gap(){
+      float w_coeff = 1.095;
+      float leftpwm = 20;
+      float rpwm = 20;
+      leftpwm = leftpwm*w_coeff;
+      motors.setMotorPower(leftpwm,rpwm);
     }
 
     void run(){
@@ -171,7 +247,7 @@ class FSM_c{
       updateState(data);
       Serial.print("State: ");
       Serial.print(state);
-      state = 100;
+      // state = 100;
       // state = STATE_RETURN_HOME;
       if(state == STATE_INITIAL){
         // Set everything to 0
@@ -196,32 +272,48 @@ class FSM_c{
         findLine();
       } else if(state == STATE_RETURN_HOME){
         returnHome();
+      }else if(state == STATE_GAP){
+        gap();
       }else {
         // Serial.print("SYSTEM ERROR, unknown state: ");
         // Serial.println(state);
         // motors.stop();
-        followLine(data);
+        // followLine(data);
+        // returnHome();
+
+        // const float og_theta = kinematics.theta_i;
+        // float curr_theta = kinematics.theta_i;
+        // float w_coeff = 1.095;
+        // float leftpwm = 20;
+        // float rpwm = 20;
+        // leftpwm = leftpwm*w_coeff;
+        // motors.setMotorPower(leftpwm,rpwm);
+        // // if()
+        // if(kinematics.disp>362){
+        //   motors.stop();
+        // }
+        // motors.stop();
+        
       }
     }
 
     void log(sensorData data){
-      Serial.print("Left: ");
-      Serial.println(data.left);
-      Serial.print("Right: ");
-      Serial.println(data.right);
-      Serial.print("Mid: ");
-      Serial.println(data.mid);
-      Serial.print("EL: ");
-      Serial.println(data.el);
-      Serial.print("ER: ");
-      Serial.println(data.er);
+      // Serial.print("Left: ");
+      // Serial.println(data.left);
+      // Serial.print("Right: ");
+      // Serial.println(data.right);
+      // Serial.print("Mid: ");
+      // Serial.println(data.mid);
+      // Serial.print("EL: ");
+      // Serial.println(data.el);
+      // Serial.print("ER: ");
+      // Serial.println(data.er);
       // float w = controller.weightedMeasurement(data.left, data.right, data.mid, data.el, data.er);
       // Serial.print("W: ");
       // Serial.println(w);
       // controller.weigthedAvg(w, data.left, data.mid, data.right, data.el, data.er);
-
-      Serial.print("STATEE: ");
-      Serial.println(state);
+      // Serial.print("STATEE: ");
+      // Serial.println(state);
     }
 };
 

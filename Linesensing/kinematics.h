@@ -52,11 +52,16 @@ class Kinematics_c {
       x_i += x_r*cos(theta_i);
       y_i += x_r*sin(theta_i);
       theta_i += theta_r;
+      if(theta_i<0){
+        theta_i += (2*PI);
+      }else if(theta_i>(2*PI)){
+        theta_i -= (2*PI);
+      }
     }
     // Use this function to update
     // your kinematics
     unsigned long prev_time = 0;
-    unsigned long timestep = 100;
+    unsigned long timestep = 10;
     void update() {
       // Serial.println("Count:");
       // Encoder 0 is for the right tyre.
@@ -78,6 +83,8 @@ class Kinematics_c {
       Serial.println(x_i);
       Serial.print("Displacement: ");
       Serial.println(disp);
+      Serial.print("y: ");
+      Serial.println(y_i);
       Serial.print("Angle rotated: ");
       Serial.println(theta_i*(180/PI));
     }
