@@ -19,6 +19,7 @@ using namespace std;
 #define STATE_DEADEND 10
 #define STATE_FIND 11
 #define STATE_GAP 12
+#define STATE_REACHED_HOME 13
 #define LEFT_THRESHOLD 1000
 #define RIGHT_THRESHOLD 1000
 #define DURATION 300
@@ -93,8 +94,8 @@ class FSM_c{
       }else if(sensor_data.mid > 1000 && sensor_data.el < 1400 && sensor_data.er<1500 && state == STATE_TURN_LEFT){
         state = STATE_FOLLOW_LINE;
       }else if(sensor_data.mid<LEFT_THRESHOLD && sensor_data.left<800 && sensor_data.right<800 && sensor_data.er<1000 
-        && state == STATE_FOLLOW_LINE 
-        && (kinematics.disp<300 || kinematics.disp>500)){
+        && state == STATE_FOLLOW_LINE){ 
+        // && (kinematics.disp<300 || kinematics.disp>500)){
   
         state = STATE_DEADEND;
       }else if((sensor_data.left>LEFT_THRESHOLD 
@@ -137,25 +138,28 @@ class FSM_c{
       // otherwise set everything 0 urself.
       state = STATE_DRIVE_FORWARDS;
     }
+
     unsigned long timer = 0; 
     void dead(){
       if(timer==0){
         timer = millis();
       }
-      if(kinematics.disp>1180){
+      if(kinematics.disp>1180){ // was 1180
         motors.stop();
         state = STATE_RETURN_HOME;
       }else{
-        if(kinematics.disp>500){
+        if (kinematics.disp>500){ // was 500
           state = STATE_GAP;
+          // motors.stop();
         }
         if(millis()-timer>DURATION){
           motors.stop();
           timer = 0;
           state = STATE_REDISCOVER_LINE; 
-        }else{
-          state = STATE_FOLLOW_LINE;
-        }
+          }
+          else{
+            state = STATE_FOLLOW_LINE;
+          }
       }
     }
 
@@ -168,13 +172,16 @@ class FSM_c{
       }
     }
 
+    float FINAL_ANGLE; 
     bool heading(){
       float x = kinematics.x_i;
       float y = kinematics.y_i;
       float theta_final = kinematics.theta_i;
-
-      float targetAngle = (3*PI)/2 - atan2(-x,-y);
+      float offset = 2*(PI/180);
+      float targetAngle = (3*PI)/2 - atan2(-x,-y) + offset;
       // float targetAngle = PI/2;
+      FINAL_ANGLE = targetAngle;
+      
       float tolerance = 2*(PI/180);
 
       if(abs(targetAngle-theta_final)>tolerance){
@@ -187,49 +194,86 @@ class FSM_c{
       }
     }
 
-    void go_home_c(){
+    float min_d = 1000000;
+    bool go_home_c(){
       // Implement a controller to make it run straight.
-    }
-    
-    bool go_home(float d_home){
       kinematics.update();
-      float d_curr = kinematics.disp;
-      float d_tol = d_home;
-      float distance_travelled = abs(d_home - d_curr); 
-      Serial.print("distance travelled: ");
-      Serial.println(distance_travelled);
-      Serial.print("Displacement: ");
-      Serial.println(d_curr);
-      if(distance_travelled<d_tol){
-        motors.setMotorPower(20,20);
+      float homeDistance = kinematics.disp;
+      if (homeDistance<min_d){
+        min_d = homeDistance;
         return false;
-      }else{
+      }else if(homeDistance>(min_d) && homeDistance<100){
         motors.stop();
         return true;
       }
     }
 
-    bool flag = false;
+    void r_drive(){
+      float w_coeff = 1.095;
+      float leftpwm = 20;
+      float rpwm = 20;
+      leftpwm = leftpwm*w_coeff;
+      motors.setMotorPower(leftpwm,rpwm);
+    }
+
+    void dirCorrect(){
+      kinematics.update();
+      float currHeading = kinematics.theta_i;
+      if(currHeading<FINAL_ANGLE){
+        motors.setMotorPower(25,20);
+        // motors.turnRight(20);
+      }else if(currHeading>FINAL_ANGLE){
+        motors.setMotorPower(20,25);
+      }
+    }
+    
+    // bool go_home(float d_home){
+    //   kinematics.update();
+    //   Serial.print("Final Angle: ");
+    //   Serial.print(FINAL_ANGLE);
+    //   float d_curr = kinematics.disp;
+    //   float distance_travelled = abs(d_home - d_curr); 
+    //   Serial.print("d_home: ");
+    //   Serial.println(d_home);
+    //   Serial.print("distance travelled: ");
+    //   // Serial.println(distance_travelled);
+    //   Serial.print("Displacement: ");
+    //   Serial.println(d_curr);
+    //   // 1445 total distance
+    //   if(distance_travelled<d_home){
+    //     // motors.setMotorPower(20,20);
+    //     gap();
+    //     return false;
+    //   }else{
+    //     motors.stop();
+    //     return true;
+    //   }
+    // }
+    bool h_flag = false;
     bool d_flag = false;
     void returnHome(){
       // // find current angle.
       // // change heading towards that angle.
       // make the robot go there.
-      while(flag == false){
-        flag = heading();
+      while(h_flag == false){
+        h_flag = heading();
       }
-
       kinematics.update();
+
       float x_home = kinematics.x_i;
       float y_home = kinematics.y_i;
       const float d_home = kinematics.disp;
-
+      Serial.print("D_HOME ;");
+      // Serial.print(d_home);
       // delay(500);
       // Serial.print();
-      d_flag = true;
+      // d_flag = true;
       while(d_flag == false){
-        flag = go_home(d_home);
+        d_flag = go_home_c();
+        // r_drive();
+        dirCorrect();
       }
+      state = STATE_REACHED_HOME;
     }
 
     void gap(){
@@ -246,7 +290,7 @@ class FSM_c{
       // log(data);
       updateState(data);
       Serial.print("State: ");
-      Serial.print(state);
+      Serial.println(state);
       // state = 100;
       // state = STATE_RETURN_HOME;
       if(state == STATE_INITIAL){
@@ -274,10 +318,13 @@ class FSM_c{
         returnHome();
       }else if(state == STATE_GAP){
         gap();
+      }else if(state == STATE_REACHED_HOME){
+        // reached home.
+        motors.stop();
       }else {
         // Serial.print("SYSTEM ERROR, unknown state: ");
         // Serial.println(state);
-        // motors.stop();
+        motors.stop();
         // followLine(data);
         // returnHome();
 
@@ -292,8 +339,6 @@ class FSM_c{
         // if(kinematics.disp>362){
         //   motors.stop();
         // }
-        // motors.stop();
-        
       }
     }
 
