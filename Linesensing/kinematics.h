@@ -35,14 +35,16 @@ class Kinematics_c {
       long delta_count_e0 = count_e0 - prev_count_e0;
       long delta_count_e1 = count_e1 - prev_count_e1;
 
+      Serial.print(delta_count_e0);
+
       // Update the prev enc counts
       prev_count_e0 = count_e0;
       prev_count_e1 = count_e1;
 
       float time_diff=0; 
       // 2r = 32mm, l = 96mm
-      float r = 17;
-      float l = 85; // l = 90mm was using.
+      float r = 17.2;
+      float l = 84.5; // l = 90mm was using.
       float dpc = (2*PI)/CPR; // Coeffcient for Distance travelled per count
 
       float x_r = dpc*r*(delta_count_e0+delta_count_e1)/2;
@@ -83,8 +85,8 @@ class Kinematics_c {
       Serial.println(x_i);
       Serial.print("Displacement: ");
       Serial.println(disp);
-      Serial.print("y: ");
-      Serial.println(y_i);
+      // Serial.print("y: ");
+      // Serial.println(y_i);
       Serial.print("Angle rotated: ");
       Serial.println(theta_i*(180/PI));
     }

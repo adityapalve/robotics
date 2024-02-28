@@ -61,30 +61,6 @@ class FSM_c{
       sensor_data.er = line_sensors.readLineSensor(line_sensors.ls_pins[4]);
       return sensor_data;
     }
-    /*
-    STATES: 
-    1. Initial State
-    2. Drive Straight
-    3. Join Line 
-    4. Follow Line
-    5. Rediscover Line
-
-    Meta States: 
-    1. Drive Straight
-    2. Turn 180
-    3. Turn until line
-    4. Turn to Home (for later)
-    
-    Transition States: 
-    S3 -> S4:  when on line.
-    S4 -> S5: when all white sensor data(line==false).
-      - S4 -> MS2: (line == false)
-      - MS2 -> MS2: (angleRotated<180)
-    S5 -> S4: when on line.
-      - MS2 -> S4: (found line || angleRotated===180).
-    
-    */
-    bool end;
 
     void updateState(sensorData sensor_data){
       if(sensor_data.left<leftThreshold && sensor_data.right<RIGHT_THRESHOLD && sensor_data.mid<RIGHT_THRESHOLD && state == STATE_DRIVE_STR){
@@ -94,9 +70,8 @@ class FSM_c{
       }else if(sensor_data.mid > 1000 && sensor_data.el < 1400 && sensor_data.er<1500 && state == STATE_TURN_LEFT){
         state = STATE_FOLLOW_LINE;
       }else if(sensor_data.mid<LEFT_THRESHOLD && sensor_data.left<800 && sensor_data.right<800 && sensor_data.er<1000 
-        && state == STATE_FOLLOW_LINE){ 
-        // && (kinematics.disp<300 || kinematics.disp>500)){
-  
+        && state == STATE_FOLLOW_LINE 
+        && (kinematics.disp<300 || kinematics.disp>570)){
         state = STATE_DEADEND;
       }else if((sensor_data.left>LEFT_THRESHOLD 
         || sensor_data.right>LEFT_THRESHOLD 
@@ -144,22 +119,21 @@ class FSM_c{
       if(timer==0){
         timer = millis();
       }
-      if(kinematics.disp>1180){ // was 1180
+      if(kinematics.disp>1200){ // was 1180
         motors.stop();
         state = STATE_RETURN_HOME;
       }else{
-        if (kinematics.disp>500){ // was 500
-          state = STATE_GAP;
-          // motors.stop();
-        }
-        if(millis()-timer>DURATION){
+        if (kinematics.disp>500 && kinematics.disp<1200){ // was 500
+            state = STATE_GAP;
+        }else{
+          if(millis()-timer>DURATION){
           motors.stop();
           timer = 0;
           state = STATE_REDISCOVER_LINE; 
-          }
-          else{
+         }else{
             state = STATE_FOLLOW_LINE;
           }
+        }
       }
     }
 
@@ -177,7 +151,8 @@ class FSM_c{
       float x = kinematics.x_i;
       float y = kinematics.y_i;
       float theta_final = kinematics.theta_i;
-      float offset = 2*(PI/180);
+      float offset = 12*(PI/180);
+      // float offset = 0;
       float targetAngle = (3*PI)/2 - atan2(-x,-y) + offset;
       // float targetAngle = PI/2;
       FINAL_ANGLE = targetAngle;
@@ -198,11 +173,24 @@ class FSM_c{
     bool go_home_c(){
       // Implement a controller to make it run straight.
       kinematics.update();
+      // long current_count = kinematics.prev_count_e0;
       float homeDistance = kinematics.disp;
+      // float number_of_counts = (CPR/(2*PI*17.2))*homeDistance;
+      // Serial.print("number_of_counts:");
+      // Serial.println(number_of_counts);
+      // Serial.print("Diff:");
+      // Serial.println(current_count-count_before_home);
+      // if (abs(current_count-count_before_home)<number_of_counts){
+      //   return false;
+      // }else{
+      //   return true;
+      // }
       if (homeDistance<min_d){
         min_d = homeDistance;
         return false;
-      }else if(homeDistance>(min_d) && homeDistance<100){
+      }else if(homeDistance>(min_d+40)) 
+      // && homeDistance>600)
+      {
         motors.stop();
         return true;
       }
@@ -219,11 +207,23 @@ class FSM_c{
     void dirCorrect(){
       kinematics.update();
       float currHeading = kinematics.theta_i;
+      // float f_angle = 3*PI/2 - atan2(-kinematics.x_i,-kinematics.y_i);
+      if ((currHeading-FINAL_ANGLE)>PI){
+        currHeading = currHeading-2*PI;
+      }
+      // if (currHeading>PI){
+      //   currHeading -= 
+      // }
       if(currHeading<FINAL_ANGLE){
-        motors.setMotorPower(25,20);
-        // motors.turnRight(20);
+        motors.setMotorPower(32,20);
+        // while(abs(currHeading-FINAL_ANGLE)>tolerance){
+        //   motors.turnRight(20);
+        // }
       }else if(currHeading>FINAL_ANGLE){
-        motors.setMotorPower(20,25);
+        // while(abs(currHeading-FINAL_ANGLE)>tolerance){
+        //   motors.turnLeft(20*1.095);
+        // }
+        motors.setMotorPower(20*1.095,35);
       }
     }
     
@@ -251,6 +251,7 @@ class FSM_c{
     // }
     bool h_flag = false;
     bool d_flag = false;
+    long count_before_home;
     void returnHome(){
       // // find current angle.
       // // change heading towards that angle.
@@ -260,15 +261,18 @@ class FSM_c{
       }
       kinematics.update();
 
-      float x_home = kinematics.x_i;
-      float y_home = kinematics.y_i;
-      const float d_home = kinematics.disp;
-      Serial.print("D_HOME ;");
+      // float x_home = kinematics.x_i;
+      // float y_home = kinematics.y_i;
+      // Serial.print("D_HOME ;");
       // Serial.print(d_home);
       // delay(500);
       // Serial.print();
       // d_flag = true;
+      // unsigned prevTime = 0;
+      // unsigned tstep = 100;
+      count_before_home = kinematics.prev_count_e0;
       while(d_flag == false){
+        Serial.print("ITS STUCK HERE");
         d_flag = go_home_c();
         // r_drive();
         dirCorrect();
@@ -318,19 +322,22 @@ class FSM_c{
         returnHome();
       }else if(state == STATE_GAP){
         gap();
+        // motors.stop();
       }else if(state == STATE_REACHED_HOME){
         // reached home.
+        // Serial.print("FINAL ANGLE: ");
+        // Serial.println(FINAL_ANGLE);
         motors.stop();
       }else {
         // Serial.print("SYSTEM ERROR, unknown state: ");
         // Serial.println(state);
-        motors.stop();
+        // motors.stop();
         // followLine(data);
         // returnHome();
 
         // const float og_theta = kinematics.theta_i;
         // float curr_theta = kinematics.theta_i;
-        // float w_coeff = 1.095;
+        // float w_coeff = 1.0999;
         // float leftpwm = 20;
         // float rpwm = 20;
         // leftpwm = leftpwm*w_coeff;
