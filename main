@@ -1,0 +1,193 @@
+#include "linesensor.h"
+#include "motors.h"
+#include "encoders.h"
+#include "kinematics.h"
+#include "pid.h"
+
+#define LEFTBUMPER 4
+#define RIGHTBUMPER 5
+
+// Creating instances of the classes to be used:
+LineSensor_c line_sensor;
+Motors_c motors;
+Kinematics_c kinematics;
+PID_c PID;
+
+
+unsigned long LeftBumperValues;
+unsigned long RightBumperValues;
+
+//#define active_threshold 1100
+
+// Storing the number of revolutions for both wheels
+int LeftRevolutionCount;
+int RightRevolutionCount;
+int DeltaEncoderCounts;
+
+// Storing dimensions of the robot:
+byte wheelRadius = 1.6;
+byte L_robotDiameter = 45;
+
+unsigned long interval = 1000; // Interval in milliseconds
+
+// PID variables
+PID_c spd_pid_left;
+PID_c spd_pid_right;
+PID_c PI_headingController;
+
+unsigned long update_ts; // timestamp
+
+long count_e1_last;
+long count_e1;
+float avg_e1_spd; // low pass filter
+
+long count_e2_last;
+long count_e2;
+float avg_e2_spd; // low pass filter
+
+unsigned long pid_test;
+float demand_L = -0.2;
+float demand_R = -0.2;
+// demand for left wheel is 0.3
+// demand for right wheel is 0.34
+
+// for weighted pi control
+float left_demand;
+float right_demand;
+#define bias_demand 0.2
+#define max_turn_demand 0.4
+
+
+void setup() {
+
+//  line_sensor.Initialise();
+  motors.initialise();
+  setupEncoder0();
+  setupEncoder1();
+  kinematics.initialise();
+
+    //  p term for left = 160, right = 155
+  // i term for left = 0.035, right = 0.03
+  
+  // Set up for kp, ki, kd
+  spd_pid_right.intialise(155,0.03, 0);
+  spd_pid_left.intialise(156, 0.035, 0);
+  
+  avg_e1_spd = 0;
+  avg_e2_spd =0;
+
+  motors.set_motor_power( 0, 0);
+
+
+  count_e1_last = LeftEncoderCount;
+  count_e2_last = RightEncoderCount;
+  spd_pid_left.reset();
+  spd_pid_right.reset();
+
+  line_sensor.IR_BUMPER_EMIT_INIT();
+  
+  update_ts = millis();
+//
+//
+//  pinMode(LEFTBUMPER, INPUT);
+//  pinMode(RIGHTBUMPER, INPUT);
+//  pinMode(11, OUTPUT);
+
+  Serial.begin(9600);
+  delay(1000);
+  Serial.print("***RESET***");
+
+
+
+}
+
+
+
+
+void loop() {
+//
+//  OnLine = line_sensor.lineDetected();
+//  updateState();
+//  kinematics.updateKinematics();
+  pi_control_straightDrive();
+//
+  line_sensor.IR_BUMPER_OFF();
+  line_sensor.read_bumper_discrete();
+  line_sensor.read_bumper();
+ 
+  
+//  pi_control_straightDrive();
+
+
+
+
+  
+  Serial.print(bumper_value[0]);
+  Serial.print(",");
+  Serial.print(line_sensor.ls_reading[0]);
+  Serial.print(",");
+
+
+
+  
+  Serial.print("\n");
+
+  
+//  Serial.print(line_sensor.ls_reading[0]);
+//  Serial.print(",");
+//  Serial.print(line_sensor.ls_reading[1]);
+//  Serial.print(",");
+//  Serial.print(line_sensor.ls_reading[2]);
+//  Serial.print(",");
+//  Serial.print(line_sensor.ls_reading[3]);
+//  Serial.print(",");
+//  Serial.print(line_sensor.ls_reading[4]);
+//  Serial.print("\n");
+
+  
+
+
+}; // End of loop()
+
+
+
+
+// Function using PI to drive in a straight fashion
+void pi_control_straightDrive() {
+  unsigned long elapsed;
+  elapsed = millis() - update_ts;
+
+  // Calculating a speed estimate:
+  if (elapsed > 20) { // every 20 milliseconds, the below code will run
+    update_ts = millis();
+
+
+    // calculate difference in encoder counts
+    long diff_e1;
+    long diff_e2;
+    float e1_speed;
+    float e2_speed;
+    diff_e1 = LeftEncoderCount - count_e1_last;
+    count_e1_last = LeftEncoderCount;
+    diff_e2 = RightEncoderCount - count_e2_last;
+    count_e2_last = RightEncoderCount;
+
+    // encoder counts per ms
+    e1_speed = (float)diff_e1;
+    e1_speed /= (float)elapsed;
+    e2_speed = (float)diff_e2;
+    e2_speed /= (float)elapsed;
+
+    avg_e1_spd = (avg_e1_spd * 0.7) + (e1_speed * 0.3);
+    float PWM_L;
+    PWM_L = spd_pid_left.updatePID(avg_e1_spd, demand_L);
+
+
+    avg_e2_spd = (avg_e2_spd * 0.7) + (e2_speed * 0.3);
+    float PWM_R;
+    PWM_R = spd_pid_right.updatePID(avg_e2_spd, demand_R);
+
+    motors.set_motor_power(PWM_L, PWM_R);
+
+  }
+}
