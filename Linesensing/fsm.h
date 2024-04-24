@@ -4,6 +4,7 @@
 #include "kinematics.h"
 #include "bangbang.h"
 #include "kinematics.h"
+#include "serial.h"
 using namespace std;
 
 #define STATE_INITIAL 0
@@ -50,6 +51,8 @@ class FSM_c{
       float mid;
       float right;
       float er;
+      float bp_l;
+      float bp_r;
     };
 
     sensorData updateSensors(){
@@ -59,6 +62,12 @@ class FSM_c{
       sensor_data.mid = line_sensors.readLineSensor(line_sensors.ls_pins[2]);
       sensor_data.right = line_sensors.readLineSensor(line_sensors.ls_pins[3]);
       sensor_data.er = line_sensors.readLineSensor(line_sensors.ls_pins[4]);
+      // Using time diff approach
+      sensor_data.bp_l = line_sensors.readBumpSensor(line_sensors.bs_pins[0]);
+      sensor_data.bp_r = line_sensors.readBumpSensor(line_sensors.bs_pins[1]);
+      // Using ADC.
+      // sensor_data.bp_l = line_sensors.readBumpSensor_analog(line_sensors.bs_pins[0]);
+      // sensor_data.bp_r = line_sensors.readBumpSensor_analog(line_sensors.bs_pins[1]);
       return sensor_data;
     }
 
@@ -292,11 +301,10 @@ class FSM_c{
       sensorData data = updateSensors();
       kinematics.update();
       // log(data);
-      updateState(data);
-      Serial.print("State: ");
-      Serial.println(state);
-      // state = 100;
-      // state = STATE_RETURN_HOME;
+      // updateState(data);
+      // Serial.print("State: ");
+      // Serial.println(state);
+      state = 100;
       if(state == STATE_INITIAL){
         // Set everything to 0
         calibration();        
@@ -331,21 +339,27 @@ class FSM_c{
       }else {
         // Serial.print("SYSTEM ERROR, unknown state: ");
         // Serial.println(state);
-        // motors.stop();
-        // followLine(data);
-        // returnHome();
+        // log(data);
+        // Serial.print("Left BP: ");
+        // Serial.println(data.bp_l);
+        // Serial.print("Right BP: ");
+        // Serial.println(data.bp_r);
+        Serial.print("Readings: ");
+        Serial.print(data.bp_l);
+        Serial.print(",");
+        Serial.println(data.bp_r);
 
-        // const float og_theta = kinematics.theta_i;
-        // float curr_theta = kinematics.theta_i;
-        // float w_coeff = 1.0999;
-        // float leftpwm = 20;
-        // float rpwm = 20;
-        // leftpwm = leftpwm*w_coeff;
-        // motors.setMotorPower(leftpwm,rpwm);
-        // // if()
-        // if(kinematics.disp>362){
+        if (data.bp_l<1500 && data.bp_r<1500){
+          driveStr();
+        // }else if (data.bp_l>800 && data.bp_r>800){
         //   motors.stop();
         // }
+        }else{
+          motors.stop();
+        }
+        // delay(200);
+        // Serial.print("LS Mid: ");
+        // Serial.println(data.mid);
       }
     }
 
